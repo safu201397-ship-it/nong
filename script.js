@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const option = {
             toolbox: {
                 feature: {
-                    saveAsImage: { name: '每日生產不良率趨勢', title: '儲存圖片' }
+                    saveAsImage: { name: '每日生產不良率趨勢', title: '儲存圖片', backgroundColor: '#131A2A' }
                 }
             },
             tooltip: {
@@ -393,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const option = {
             toolbox: {
                 feature: {
-                    saveAsImage: { name: '主要NG原因佔比', title: '儲存圖片' }
+                    saveAsImage: { name: '主要NG原因佔比', title: '儲存圖片', backgroundColor: '#131A2A' }
                 }
             },
             tooltip: {
@@ -449,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const option = {
             toolbox: {
                 feature: {
-                    saveAsImage: { name: '影響因素分析', title: '儲存圖片' }
+                    saveAsImage: { name: '影響因素分析', title: '儲存圖片', backgroundColor: '#131A2A' }
                 }
             },
             tooltip: {
@@ -518,7 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const option = {
             toolbox: {
                 feature: {
-                    saveAsImage: { name: '各產品NG次數排名(堆疊明細)', title: '儲存圖片' }
+                    saveAsImage: { name: '各產品NG次數排名(堆疊明細)', title: '儲存圖片', backgroundColor: '#131A2A' }
                 }
             },
             tooltip: {
@@ -566,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const option = {
             toolbox: {
                 feature: {
-                    saveAsImage: { name: '產品受影響因素種類數', title: '儲存圖片' }
+                    saveAsImage: { name: '產品受影響因素種類數', title: '儲存圖片', backgroundColor: '#131A2A' }
                 }
             },
             tooltip: {
