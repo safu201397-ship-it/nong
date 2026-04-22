@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生產不良率儀錶板 (Production NG Dashboard)</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="fa-solid fa-chart-line"></i>
+                <h1>數據視覺化戰情室 <span>| NG Analysis</span></h1>
+            </div>
+            <div class="header-actions">
+                <button id="btn-reupload" class="btn btn-secondary hidden" onclick="location.reload();">
+                    <i class="fa-solid fa-arrow-rotate-right"></i> 重新載入檔案
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Modal / View -->
+            <div id="upload-view" class="view-section active">
+                <div class="upload-box" id="drop-zone">
+                    <div class="upload-icon">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <h2>將 Excel 報告拖曳至此處</h2>
+                    <p>支援 .xlsx, .xls, .csv 檔案</p>
+                    <div class="divider"><span>或</span></div>
+                    <label for="file-input" class="btn btn-primary">
+                        <i class="fa-solid fa-folder-open"></i> 瀏覽電腦檔案
+                    </label>
+                    <input type="file" id="file-input" accept=".xlsx, .xls, .csv">
+                </div>
+            </div>
+
+            <!-- Loader (Hidden by default) -->
+            <div id="loader-view" class="view-section">
+                <div class="spinner"></div>
+                <p>正在分析龐大數據，請稍候...</p>
+            </div>
+
+            <!-- Dashboard View (Hidden by default) -->
+            <div id="dashboard-view" class="view-section">
+                
+                <!-- KPI Section -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon total-prod"><i class="fa-solid fa-boxes-stacked"></i></div>
+                        <div class="kpi-info">
+                            <h3>總生產量</h3>
+                            <div class="kpi-value" id="kpi-total-prod">--</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon total-ng"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="kpi-info">
+                            <h3>總不良數</h3>
+                            <div class="kpi-value" id="kpi-total-ng">--</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon avg-rate"><i class="fa-solid fa-percent"></i></div>
+                        <div class="kpi-info">
+                            <h3>平均不良率</h3>
+                            <div class="kpi-value" id="kpi-avg-rate">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-grid">
+                    <!-- Main Trend Chart (Spans full width) -->
+                    <div class="chart-card full-width">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-calendar-days"></i> 每日生產與不良率趨勢</h3>
+                        </div>
+                        <div class="chart-body" id="trend-chart"></div>
+                    </div>
+
+                    <!-- Pie Chart -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-chart-pie"></i> 主要 NG 原因佔比</h3>
+                        </div>
+                        <div class="chart-body" id="reason-chart"></div>
+                    </div>
+
+                    <!-- Bar Chart -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-ranking-star"></i> 各產品 NG 次數排行</h3>
+                        </div>
+                        <div class="chart-body" id="product-chart"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- ECharts dark theme (optional, let's use default or custom styling) -->
+    
+    <script src="script.js"></script>
+</body>
+</html>
