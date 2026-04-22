@@ -7,9 +7,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnReupload = document.getElementById('btn-reupload');
     const btnExportDashboard = document.getElementById('btn-export');
     const btnExportTable = document.getElementById('btn-export-table');
+    const btnExportPivot = document.getElementById('btn-export-pivot');
+    const btnExportFactorCount = document.getElementById('btn-export-factor-count');
 
     // Chart instances
-    let trendChart, reasonChart, factorChart, productChart;
+    let trendChart, reasonChart, factorChart, factorCountChart, productChart;
+    let lastRenderData = {}; // Stores latest parsed data for redraw
+
+    // Global Color Mapping System
+    window.chartColors = { reasons: {}, factors: {} };
+    const P_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#84CC16', '#F43F5E', '#A855F7', '#EAB308'];
+    let reasonCIdx = 0; let factorCIdx = 0;
+
+    function getReasonColor(name) {
+        if (!name || name === '-') return '#94A3B8';
+        if (!window.chartColors.reasons[name]) {
+            window.chartColors.reasons[name] = P_COLORS[reasonCIdx % P_COLORS.length];
+            reasonCIdx++;
+        }
+        return window.chartColors.reasons[name];
+    }
+    
+    function getFactorColor(name) {
+        if (!name || name === '-' || name === '未標明/其他') return '#64748B';
+        if (!window.chartColors.factors[name]) {
+            window.chartColors.factors[name] = P_COLORS[factorCIdx % P_COLORS.length];
+            factorCIdx++;
+        }
+        return window.chartColors.factors[name];
+    }
 
     // View Switching
     function showView(viewId) {
@@ -87,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(trendChart) trendChart.resize();
                 if(reasonChart) reasonChart.resize();
                 if(factorChart) factorChart.resize();
+                if(factorCountChart) factorCountChart.resize();
                 if(productChart) productChart.resize();
             });
 
@@ -126,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let productFactorStats = {}; // { 'Product': { total: 0, factors: {} } }
         let allFactorsSet = new Set();
         let validRecordsForTable = []; // for data table
+        let pivotStats = {}; // { 'Product': { 'Reason': { 'Factor': count } } }
 
         data.forEach(row => {
             // Try to identify columns flexibly
@@ -178,6 +206,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const valToAdd = (ngNum > 0 ? ngNum : 1);
                 productFactorStats[productVal].total += valToAdd;
                 productFactorStats[productVal].factors[currentFactor] = (productFactorStats[productVal].factors[currentFactor] || 0) + valToAdd;
+            }
+
+            // Pivot Stats
+            if (ngNum > 0 && productVal) {
+                const r = reasonVal || '-';
+                const f = factorVal || '-';
+                if (!pivotStats[productVal]) pivotStats[productVal] = {};
+                if (!pivotStats[productVal][r]) pivotStats[productVal][r] = {};
+                pivotStats[productVal][r][f] = (pivotStats[productVal][r][f] || 0) + ngNum;
             }
 
             // Add to Data Table if it's an NG event
@@ -242,13 +279,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const prodNames = prodDataEntries.map(e => e.name);
         const allFactorsArray = Array.from(allFactorsSet);
 
+        // Store for redraws
+        lastRenderData = {
+            trendDates, trendProd, trendRate,
+            reasonData, factorNames, factorValues,
+            prodNames, allFactorsArray, prodDataEntries,
+            productFactorStats
+        };
+
         // Render Charts!
         renderTrendChart(trendDates, trendProd, trendRate);
-        renderReasonPieChart(reasonData);
-        renderFactorBarChart(factorNames, factorValues);
-        renderProductBarChart(prodNames, allFactorsArray, prodDataEntries);
+        updateColorsAndRedraw(); // renders Pie, Factor, Product charts
 
+        renderPivotTable(pivotStats);
+        renderFactorCountTable(productFactorStats);
         renderDataTable(validRecordsForTable);
+    }
+
+    function updateColorsAndRedraw() {
+        renderReasonPieChart(lastRenderData.reasonData);
+        renderFactorBarChart(lastRenderData.factorNames, lastRenderData.factorValues);
+        renderFactorCountChart(lastRenderData.productFactorStats);
+        renderProductBarChart(lastRenderData.prodNames, lastRenderData.allFactorsArray, lastRenderData.prodDataEntries);
     }
 
     // ECharts generic dark theme utility styles
@@ -379,8 +431,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     },
                     labelLine: { show: false },
-                    data: data,
-                    color: ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899']
+                    data: data.map(item => ({
+                        name: item.name,
+                        value: item.value,
+                        itemStyle: { color: getReasonColor(item.name) }
+                    }))
                 }
             ]
         };
@@ -420,13 +475,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 {
                     name: '發生次數',
                     type: 'bar',
-                    data: values,
+                    data: values.map((val, i) => ({
+                        value: val,
+                        itemStyle: { color: getFactorColor(names[i]) }
+                    })),
                     label: { show: true, position: 'right', color: chartTextColor },
                     itemStyle: {
-                        color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                            { offset: 0, color: '#8B5CF6' },
-                            { offset: 1, color: '#5B21B6' }
-                        ]),
                         borderRadius: [0, 4, 4, 0]
                     }
                 }
@@ -448,6 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: factor,
                 type: 'bar',
                 stack: 'total',
+                itemStyle: { color: getFactorColor(factor) },
                 emphasis: { focus: 'series' },
                 // Only show label if the value is big enough or if it's > 0
                 label: {
@@ -496,6 +551,122 @@ document.addEventListener('DOMContentLoaded', () => {
         productChart.setOption(option);
     }
 
+    function renderFactorCountChart(productFactorStats) {
+        if(factorCountChart) factorCountChart.dispose();
+        factorCountChart = echarts.init(document.getElementById('factor-count-chart'));
+
+        const entries = Object.keys(productFactorStats).map(p => ({
+            name: p,
+            count: Object.keys(productFactorStats[p].factors).length
+        })).sort((a, b) => a.count - b.count); // Ascending for horizontal bar
+
+        const names = entries.map(e => e.name);
+        const values = entries.map(e => e.count);
+
+        const option = {
+            toolbox: {
+                feature: {
+                    saveAsImage: { name: '產品受影響因素種類數', title: '儲存圖片' }
+                }
+            },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: tooltipBg,
+                borderColor: '#334155',
+                textStyle: { color: chartTextColor },
+                axisPointer: { type: 'shadow' }
+            },
+            grid: { left: '3%', right: '10%', bottom: '3%', top: '5%', containLabel: true },
+            xAxis: {
+                type: 'value',
+                axisLabel: { color: chartTextColor },
+                splitLine: { lineStyle: { color: splitLineColor } },
+                axisLine: { show: false }
+            },
+            yAxis: {
+                type: 'category',
+                data: names,
+                axisLabel: { color: chartTextColor, fontWeight: 'bold' },
+                axisLine: { lineStyle: { color: chartLineColor } }
+            },
+            series: [{
+                name: '種類數',
+                type: 'bar',
+                data: values,
+                label: { show: true, position: 'right', color: chartTextColor },
+                itemStyle: {
+                    color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
+                        { offset: 0, color: '#3B82F6' },
+                        { offset: 1, color: '#2563EB' }
+                    ]),
+                    borderRadius: [0, 4, 4, 0]
+                }
+            }]
+        };
+        factorCountChart.setOption(option);
+    }
+
+    function renderPivotTable(pivotStats) {
+        const tbody = document.getElementById('pivot-table-body');
+        tbody.innerHTML = '';
+        
+        Object.keys(pivotStats).forEach(product => {
+            // Sort reasons by count descending or just alphabetically
+            Object.keys(pivotStats[product]).forEach(reason => {
+                Object.keys(pivotStats[product][reason]).forEach(factor => {
+                    const count = pivotStats[product][reason][factor];
+                    
+                    let tr = document.createElement('tr');
+                    
+                    // Create Reason color picker
+                    let reasonColorInput = '<span class="text-muted">無</span>';
+                    if (reason !== '-') {
+                        reasonColorInput = `<input type="color" value="${getReasonColor(reason)}" data-type="reason" data-name="${reason}">`;
+                    }
+                    
+                    // Create Factor color picker
+                    let factorColorInput = '<span class="text-muted">無</span>';
+                    if (factor !== '-' && factor !== '未標明/其他') {
+                        factorColorInput = `<input type="color" value="${getFactorColor(factor)}" data-type="factor" data-name="${factor}">`;
+                    }
+
+                    tr.innerHTML = `
+                        <td><strong>${product}</strong></td>
+                        <td>${reason}</td>
+                        <td>${factor}</td>
+                        <td class="text-warning"><strong>${count}</strong></td>
+                        <td>${reasonColorInput}</td>
+                        <td>${factorColorInput}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+        });
+        
+        // Attach event listeners to color pickers
+        document.querySelectorAll('#pivot-table-body input[type="color"]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const type = e.target.getAttribute('data-type');
+                const name = e.target.getAttribute('data-name');
+                const newColor = e.target.value;
+                
+                if (type === 'reason') {
+                    window.chartColors.reasons[name] = newColor;
+                } else if (type === 'factor') {
+                    window.chartColors.factors[name] = newColor;
+                }
+                
+                // Redraw ECharts instantly
+                updateColorsAndRedraw();
+                
+                // Sync other same color pickers in the table
+                document.querySelectorAll(`#pivot-table-body input[data-name="${name}"][data-type="${type}"]`).forEach(inp => {
+                    if (inp !== e.target) inp.value = newColor;
+                });
+            });
+        });
+    }
+
     function renderDataTable(records) {
         const tbody = document.getElementById('detail-table-body');
         tbody.innerHTML = ''; // clear
@@ -517,6 +688,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${rec.prodNum}</td>
                 <td>${rec.reason}</td>
                 <td>${rec.factor}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderFactorCountTable(productFactorStats) {
+        const tbody = document.getElementById('factor-count-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        
+        const entries = Object.keys(productFactorStats).map(p => {
+            // "未標明/其他" excluded? If we want exactly what the chart shows, count the property length.
+            // Often there might be a factor called "-" or "未標明/其他". Let's count all keys.
+            return {
+                name: p,
+                count: Object.keys(productFactorStats[p].factors).length
+            };
+        }).sort((a, b) => b.count - a.count);
+
+        entries.forEach(item => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${item.name}</strong></td>
+                <td class="text-warning" style="font-size: 1.1rem;"><strong>${item.count}</strong></td>
             `;
             tbody.appendChild(tr);
         });
@@ -572,6 +767,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('擷取圖片失敗！');
                 btnExportTable.innerHTML = '<i class="fa-solid fa-image"></i> 將表格存為圖片';
                 btnExportTable.disabled = false;
+            });
+        });
+    }
+
+    // 3. Export Pivot Table
+    if(btnExportPivot) {
+        btnExportPivot.addEventListener('click', () => {
+            const tableElem = document.getElementById('capture-pivot-area');
+            btnExportPivot.disabled = true;
+            btnExportPivot.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 處理中...';
+
+            html2canvas(tableElem, {
+                backgroundColor: '#131A2A',
+                scale: 2
+            }).then(canvas => {
+                let link = document.createElement('a');
+                link.download = 'NG_Pivot_Colors_Table.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                btnExportPivot.innerHTML = '<i class="fa-solid fa-image"></i> 將選色表存為圖片';
+                btnExportPivot.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                alert('擷取圖片失敗！');
+                btnExportPivot.innerHTML = '<i class="fa-solid fa-image"></i> 將選色表存為圖片';
+                btnExportPivot.disabled = false;
+            });
+        });
+    }
+
+    // 4. Export Factor Count Table
+    if(btnExportFactorCount) {
+        btnExportFactorCount.addEventListener('click', () => {
+            const tableElem = document.getElementById('capture-factor-count-area');
+            btnExportFactorCount.disabled = true;
+            btnExportFactorCount.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 處理中...';
+
+            html2canvas(tableElem, {
+                backgroundColor: '#131A2A',
+                scale: 2
+            }).then(canvas => {
+                let link = document.createElement('a');
+                link.download = 'NG_Factor_Count_Table.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                btnExportFactorCount.innerHTML = '<i class="fa-solid fa-image"></i> 將特徵表存為圖片';
+                btnExportFactorCount.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                alert('擷取圖片失敗！');
+                btnExportFactorCount.innerHTML = '<i class="fa-solid fa-image"></i> 將特徵表存為圖片';
+                btnExportFactorCount.disabled = false;
             });
         });
     }

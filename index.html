@@ -108,12 +108,70 @@
                         <div class="chart-body" id="factor-chart"></div>
                     </div>
 
+                    <!-- Factor Count Chart -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-layer-group"></i> 產品受影響因素種類數</h3>
+                        </div>
+                        <div class="chart-body" id="factor-count-chart"></div>
+                    </div>
+
                     <!-- Product Bar Chart (Spans full width) -->
                     <div class="chart-card full-width">
                         <div class="chart-header">
                             <h3><i class="fa-solid fa-ranking-star"></i> 各產品 NG 次數排名</h3>
                         </div>
                         <div class="chart-body" id="product-chart"></div>
+                    </div>
+                </div>
+
+                <!-- Pivot Table Section (Phase 3) -->
+                <div class="table-section">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-table-cells-large"></i> 產品 NG 細節與自訂顏色看板</h3>
+                        <button id="btn-export-pivot" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-image"></i> 將選色表存為圖片
+                        </button>
+                    </div>
+                    <div class="table-container" id="capture-pivot-area">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>產品</th>
+                                    <th>NG 原因</th>
+                                    <th>影響因素</th>
+                                    <th>發生總次數</th>
+                                    <th>圓餅圖顏色 (NG原因)</th>
+                                    <th>長條圖顏色 (影響因素)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pivot-table-body">
+                                <!-- Data injected via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Distinct Factor Count Table Section -->
+                <div class="table-section">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-list-ol"></i> 產品受影響因素種類統計表</h3>
+                        <button id="btn-export-factor-count" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-image"></i> 將特徵表存為圖片
+                        </button>
+                    </div>
+                    <div class="table-container" id="capture-factor-count-area">
+                        <table class="data-table" style="max-width: 600px; margin: 0 auto;">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: center;">產品名稱</th>
+                                    <th style="text-align: center;">具有幾種不同的影響因素 (次數)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="factor-count-table-body" style="text-align: center;">
+                                <!-- Data injected via JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
