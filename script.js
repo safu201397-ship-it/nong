@@ -123,7 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let dailyStats = {}; // { 'YYYY-MM-DD': { prod: 0, ng: 0 } }
         let reasonsStats = {}; // { 'reason': count }
         let factorStats = {}; // { 'factor': count }
-        let productStats = {}; // { 'Product': count }
+        let productFactorStats = {}; // { 'Product': { total: 0, factors: {} } }
+        let allFactorsSet = new Set();
         let validRecordsForTable = []; // for data table
 
         data.forEach(row => {
@@ -166,9 +167,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 factorStats[factorVal] = (factorStats[factorVal] || 0) + (ngNum > 0 ? ngNum : 1);
             }
 
-            // Product Stats
+            // Product & Factor Stacked Stats
             if (productVal) {
-                productStats[productVal] = (productStats[productVal] || 0) + (ngNum > 0 ? ngNum : 1);
+                if (!productFactorStats[productVal]) {
+                    productFactorStats[productVal] = { total: 0, factors: {} };
+                }
+                const currentFactor = factorVal || '未標明/其他';
+                allFactorsSet.add(currentFactor);
+                
+                const valToAdd = (ngNum > 0 ? ngNum : 1);
+                productFactorStats[productVal].total += valToAdd;
+                productFactorStats[productVal].factors[currentFactor] = (productFactorStats[productVal].factors[currentFactor] || 0) + valToAdd;
             }
 
             // Add to Data Table if it's an NG event
@@ -187,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 1. Update KPIs
         const totalProdFormatted = totalProd > 0 ? totalProd.toLocaleString() : "無生產總數";
-        const totalNGFormatted = totalNG > 0 ? totalNG.toLocaleString() : Object.keys(productStats).reduce((a,b)=>a+productStats[b], 0).toLocaleString(); // fallback to count
+        const totalNGFormatted = totalNG > 0 ? totalNG.toLocaleString() : Object.keys(productFactorStats).reduce((sum, key) => sum + productFactorStats[key].total, 0).toLocaleString(); // fallback to count
         
         // Calculate average rate
         let avgRateStr = "0.00%";
@@ -224,17 +233,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const factorNames = factorDataEntries.map(e => e.name);
         const factorValues = factorDataEntries.map(e => e.value);
 
-        // --- Bar (Products) ---
-        const prodDataEntries = Object.keys(productStats).map(k => ({ name: k, value: productStats[k] }))
-            .sort((a,b) => a.value - b.value); // Ascending for horizontal bar
+        // --- Bar (Products Stacked by Factor) ---
+        const prodDataEntries = Object.keys(productFactorStats).map(k => ({ 
+            name: k, 
+            total: productFactorStats[k].total,
+            factors: productFactorStats[k].factors
+        })).sort((a,b) => a.total - b.total); // Ascending total
         const prodNames = prodDataEntries.map(e => e.name);
-        const prodValues = prodDataEntries.map(e => e.value);
+        const allFactorsArray = Array.from(allFactorsSet);
 
         // Render Charts!
         renderTrendChart(trendDates, trendProd, trendRate);
         renderReasonPieChart(reasonData);
         renderFactorBarChart(factorNames, factorValues);
-        renderProductBarChart(prodNames, prodValues);
+        renderProductBarChart(prodNames, allFactorsArray, prodDataEntries);
 
         renderDataTable(validRecordsForTable);
     }
@@ -423,14 +435,35 @@ document.addEventListener('DOMContentLoaded', () => {
         factorChart.setOption(option);
     }
 
-    function renderProductBarChart(names, values) {
+    function renderProductBarChart(names, factors, dataEntries) {
+        const chartContainer = document.getElementById('product-chart');
+        // 加大圖表高度以容納多列圖例
+        chartContainer.style.minHeight = '550px';
+        
         if(productChart) productChart.dispose();
-        productChart = echarts.init(document.getElementById('product-chart'));
+        productChart = echarts.init(chartContainer);
+
+        const seriesData = factors.map(factor => {
+            return {
+                name: factor,
+                type: 'bar',
+                stack: 'total',
+                emphasis: { focus: 'series' },
+                // Only show label if the value is big enough or if it's > 0
+                label: {
+                    show: true,
+                    formatter: (params) => params.value > 0 ? params.value : '',
+                    color: '#fff',
+                    fontWeight: 600
+                },
+                data: dataEntries.map(entry => entry.factors[factor] || 0)
+            };
+        });
 
         const option = {
             toolbox: {
                 feature: {
-                    saveAsImage: { name: '各產品NG次數排名', title: '儲存圖片' }
+                    saveAsImage: { name: '各產品NG次數排名(堆疊明細)', title: '儲存圖片' }
                 }
             },
             tooltip: {
@@ -440,7 +473,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 textStyle: { color: chartTextColor },
                 axisPointer: { type: 'shadow' }
             },
-            grid: { left: '3%', right: '10%', bottom: '3%', top: '5%', containLabel: true },
+            legend: {
+                data: factors,
+                top: 0,
+                textStyle: { color: chartTextColor }
+            },
+            grid: { left: '3%', right: '10%', bottom: '3%', top: 120, containLabel: true },
             xAxis: {
                 type: 'value',
                 axisLabel: { color: chartTextColor },
@@ -453,25 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 axisLabel: { color: chartTextColor, fontWeight: 'bold' },
                 axisLine: { lineStyle: { color: chartLineColor } }
             },
-            series: [
-                {
-                    name: '不良次數/包數',
-                    type: 'bar',
-                    data: values,
-                    label: {
-                        show: true,
-                        position: 'right',
-                        color: chartTextColor
-                    },
-                    itemStyle: {
-                        color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                            { offset: 0, color: '#10B981' },
-                            { offset: 1, color: '#047857' }
-                        ]),
-                        borderRadius: [0, 4, 4, 0]
-                    }
-                }
-            ]
+            series: seriesData
         };
         productChart.setOption(option);
     }
