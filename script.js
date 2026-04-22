@@ -5,9 +5,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const loaderView = document.getElementById('loader-view');
     const dashboardView = document.getElementById('dashboard-view');
     const btnReupload = document.getElementById('btn-reupload');
+    const btnExportDashboard = document.getElementById('btn-export');
+    const btnExportTable = document.getElementById('btn-export-table');
 
     // Chart instances
-    let trendChart, reasonChart, productChart;
+    let trendChart, reasonChart, factorChart, productChart;
 
     // View Switching
     function showView(viewId) {
@@ -75,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 必須先顯示畫面，確保 ECharts 能抓到正確的寬高再進行渲染
             showView('dashboard-view');
             btnReupload.classList.remove('hidden');
+            btnExportDashboard.classList.remove('hidden');
             
             // 解析資料並畫圖
             analyzeData(jsonData);
@@ -83,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('resize', () => {
                 if(trendChart) trendChart.resize();
                 if(reasonChart) reasonChart.resize();
+                if(factorChart) factorChart.resize();
                 if(productChart) productChart.resize();
             });
 
@@ -118,7 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let dailyStats = {}; // { 'YYYY-MM-DD': { prod: 0, ng: 0 } }
         let reasonsStats = {}; // { 'reason': count }
+        let factorStats = {}; // { 'factor': count }
         let productStats = {}; // { 'Product': count }
+        let validRecordsForTable = []; // for data table
 
         data.forEach(row => {
             // Try to identify columns flexibly
@@ -127,6 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let prodNum = parseFloat(row['生產數']) || 0;
             let ngNum = parseFloat(row['不良包數']) || 0;
             let reasonVal = row['NG原因'] || row['原因'];
+            let factorVal = row['影響因素'];
+            let intervalVal = row['NG區間'] || row['區間'] || row['區間 / 批次'] || '-';
 
             // For '整理' sheet which might not have raw absolute numbers but has rates
             if (!row['生產數'] && row['不良率'] !== undefined) {
@@ -153,9 +161,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 reasonsStats[reasonVal] = (reasonsStats[reasonVal] || 0) + (ngNum > 0 ? ngNum : 1);
             }
 
+            // Factor Stats
+            if (factorVal) {
+                factorStats[factorVal] = (factorStats[factorVal] || 0) + (ngNum > 0 ? ngNum : 1);
+            }
+
             // Product Stats
             if (productVal) {
                 productStats[productVal] = (productStats[productVal] || 0) + (ngNum > 0 ? ngNum : 1);
+            }
+
+            // Add to Data Table if it's an NG event
+            if (ngNum > 0 || row['不良率'] !== undefined) {
+                validRecordsForTable.push({
+                    date: dateVal ? formatExcelDate(dateVal) : '-',
+                    product: productVal || '-',
+                    interval: intervalVal,
+                    ngNum: ngNum,
+                    prodNum: prodNum,
+                    reason: reasonVal || '-',
+                    factor: factorVal || '-'
+                });
             }
         });
 
@@ -192,6 +218,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const reasonData = Object.keys(reasonsStats).map(k => ({ value: reasonsStats[k], name: String(k) }))
             .sort((a,b) => b.value - a.value).slice(0, 7); // Top 7
 
+        // --- Bar (Factors) ---
+        const factorDataEntries = Object.keys(factorStats).map(k => ({ name: k, value: factorStats[k] }))
+            .sort((a,b) => a.value - b.value); // Ascending
+        const factorNames = factorDataEntries.map(e => e.name);
+        const factorValues = factorDataEntries.map(e => e.value);
+
         // --- Bar (Products) ---
         const prodDataEntries = Object.keys(productStats).map(k => ({ name: k, value: productStats[k] }))
             .sort((a,b) => a.value - b.value); // Ascending for horizontal bar
@@ -201,7 +233,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Render Charts!
         renderTrendChart(trendDates, trendProd, trendRate);
         renderReasonPieChart(reasonData);
+        renderFactorBarChart(factorNames, factorValues);
         renderProductBarChart(prodNames, prodValues);
+
+        renderDataTable(validRecordsForTable);
     }
 
     // ECharts generic dark theme utility styles
@@ -215,6 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
         trendChart = echarts.init(document.getElementById('trend-chart'));
 
         const option = {
+            toolbox: {
+                feature: {
+                    saveAsImage: { name: '每日生產不良率趨勢', title: '儲存圖片' }
+                }
+            },
             tooltip: {
                 trigger: 'axis',
                 backgroundColor: tooltipBg,
@@ -287,6 +327,11 @@ document.addEventListener('DOMContentLoaded', () => {
         reasonChart = echarts.init(document.getElementById('reason-chart'));
 
         const option = {
+            toolbox: {
+                feature: {
+                    saveAsImage: { name: '主要NG原因佔比', title: '儲存圖片' }
+                }
+            },
             tooltip: {
                 trigger: 'item',
                 backgroundColor: tooltipBg,
@@ -330,11 +375,64 @@ document.addEventListener('DOMContentLoaded', () => {
         reasonChart.setOption(option);
     }
 
+    function renderFactorBarChart(names, values) {
+        if(factorChart) factorChart.dispose();
+        factorChart = echarts.init(document.getElementById('factor-chart'));
+
+        const option = {
+            toolbox: {
+                feature: {
+                    saveAsImage: { name: '影響因素分析', title: '儲存圖片' }
+                }
+            },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: tooltipBg,
+                borderColor: '#334155',
+                textStyle: { color: chartTextColor },
+                axisPointer: { type: 'shadow' }
+            },
+            grid: { left: '3%', right: '10%', bottom: '3%', top: '10%', containLabel: true },
+            xAxis: {
+                type: 'value',
+                axisLabel: { color: chartTextColor },
+                splitLine: { lineStyle: { color: splitLineColor } },
+            },
+            yAxis: {
+                type: 'category',
+                data: names,
+                axisLabel: { color: chartTextColor, fontWeight: 'bold' },
+                axisLine: { lineStyle: { color: chartLineColor } }
+            },
+            series: [
+                {
+                    name: '發生次數',
+                    type: 'bar',
+                    data: values,
+                    label: { show: true, position: 'right', color: chartTextColor },
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
+                            { offset: 0, color: '#8B5CF6' },
+                            { offset: 1, color: '#5B21B6' }
+                        ]),
+                        borderRadius: [0, 4, 4, 0]
+                    }
+                }
+            ]
+        };
+        factorChart.setOption(option);
+    }
+
     function renderProductBarChart(names, values) {
         if(productChart) productChart.dispose();
         productChart = echarts.init(document.getElementById('product-chart'));
 
         const option = {
+            toolbox: {
+                feature: {
+                    saveAsImage: { name: '各產品NG次數排名', title: '儲存圖片' }
+                }
+            },
             tooltip: {
                 trigger: 'axis',
                 backgroundColor: tooltipBg,
@@ -376,5 +474,85 @@ document.addEventListener('DOMContentLoaded', () => {
             ]
         };
         productChart.setOption(option);
+    }
+
+    function renderDataTable(records) {
+        const tbody = document.getElementById('detail-table-body');
+        tbody.innerHTML = ''; // clear
+
+        // Limit to latest or reverse so newest is on top if sorted by date
+        // Create rows
+        records.forEach(rec => {
+            let tr = document.createElement('tr');
+            
+            // Format colors based on NG
+            let ngClass = rec.ngNum > 50 ? 'text-danger' : 
+                         (rec.ngNum > 10 ? 'text-warning' : '');
+
+            tr.innerHTML = `
+                <td>${rec.date}</td>
+                <td><strong>${rec.product}</strong></td>
+                <td>${rec.interval}</td>
+                <td class="${ngClass}"><strong>${rec.ngNum}</strong></td>
+                <td>${rec.prodNum}</td>
+                <td>${rec.reason}</td>
+                <td>${rec.factor}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // --- Export as Image functionality using html2canvas ---
+    
+    // 1. Export Dashboard
+    if(btnExportDashboard) {
+        btnExportDashboard.addEventListener('click', () => {
+            const dashboardElem = document.getElementById('dashboard-view');
+            
+            alert('正在為您擷取儀錶板，這可能需要幾秒鐘...');
+            btnExportDashboard.disabled = true;
+            
+            html2canvas(dashboardElem, {
+                backgroundColor: '#0B0F19', // Match body bg
+                scale: 2 // High Resolution
+            }).then(canvas => {
+                let link = document.createElement('a');
+                link.download = 'NG_Dashboard_Report.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                btnExportDashboard.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                alert('擷取圖片失敗！');
+                btnExportDashboard.disabled = false;
+            });
+        });
+    }
+
+    // 2. Export Data Table Only
+    if(btnExportTable) {
+        btnExportTable.addEventListener('click', () => {
+            const tableElem = document.getElementById('capture-table-area');
+            
+            btnExportTable.disabled = true;
+            btnExportTable.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 處理中...';
+
+            html2canvas(tableElem, {
+                backgroundColor: '#131A2A', // Match card bg
+                scale: 2
+            }).then(canvas => {
+                let link = document.createElement('a');
+                link.download = 'NG_Detailed_Table.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                btnExportTable.innerHTML = '<i class="fa-solid fa-image"></i> 將表格存為圖片';
+                btnExportTable.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                alert('擷取圖片失敗！');
+                btnExportTable.innerHTML = '<i class="fa-solid fa-image"></i> 將表格存為圖片';
+                btnExportTable.disabled = false;
+            });
+        });
     }
 });

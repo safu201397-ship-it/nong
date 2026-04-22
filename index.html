@@ -21,6 +21,9 @@
                 <h1>數據視覺化戰情室 <span>| NG Analysis</span></h1>
             </div>
             <div class="header-actions">
+                <button id="btn-export" class="btn btn-primary hidden">
+                    <i class="fa-solid fa-camera"></i> 下載完整儀錶板截圖
+                </button>
                 <button id="btn-reupload" class="btn btn-secondary hidden" onclick="location.reload();">
                     <i class="fa-solid fa-arrow-rotate-right"></i> 重新載入檔案
                 </button>
@@ -97,12 +100,48 @@
                         <div class="chart-body" id="reason-chart"></div>
                     </div>
 
-                    <!-- Bar Chart -->
+                    <!-- Influencing Factor Bar Chart -->
                     <div class="chart-card">
                         <div class="chart-header">
-                            <h3><i class="fa-solid fa-ranking-star"></i> 各產品 NG 次數排行</h3>
+                            <h3><i class="fa-solid fa-microscope"></i> 影響因素分析</h3>
+                        </div>
+                        <div class="chart-body" id="factor-chart"></div>
+                    </div>
+
+                    <!-- Product Bar Chart (Spans full width) -->
+                    <div class="chart-card full-width">
+                        <div class="chart-header">
+                            <h3><i class="fa-solid fa-ranking-star"></i> 各產品 NG 次數排名</h3>
                         </div>
                         <div class="chart-body" id="product-chart"></div>
+                    </div>
+                </div>
+
+                <!-- Detailed Data Table Section -->
+                <div class="table-section">
+                    <div class="table-header">
+                        <h3><i class="fa-solid fa-list-check"></i> NG 異常明細表</h3>
+                        <button id="btn-export-table" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-image"></i> 將表格存為圖片
+                        </button>
+                    </div>
+                    <div class="table-container" id="capture-table-area">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>產品</th>
+                                    <th>區間 / 批次</th>
+                                    <th>不良包數</th>
+                                    <th>總生產數</th>
+                                    <th>NG 原因</th>
+                                    <th>影響因素</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail-table-body">
+                                <!-- Data injected via JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -112,8 +151,7 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-    <!-- ECharts dark theme (optional, let's use default or custom styling) -->
-    
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
