@@ -710,8 +710,8 @@ document.addEventListener('DOMContentLoaded', () => {
         entries.forEach(item => {
             let tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${item.name}</strong></td>
-                <td class="text-warning" style="font-size: 1.1rem;"><strong>${item.count}</strong></td>
+                <td style="text-align: center;"><strong>${item.name}</strong></td>
+                <td class="text-warning" style="font-size: 1.2rem; text-align: center;"><strong>${item.count}</strong></td>
             `;
             tbody.appendChild(tr);
         });
